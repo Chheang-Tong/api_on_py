@@ -1,10 +1,29 @@
-from flask import request, jsonify
+from flask import request, jsonify, current_app
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 
 from . import bp
 from .models import User
 from ..extensions import db
+
+# ---- Enforce headers for this blueprint ----
+@bp.before_request
+def require_headers():
+   if request.endpoint and request.endpoint.endswith('.get_headers'):
+        return
+   if not request.is_json:
+       return jsonify(msg="Content-Type must be application/json"), 415
+   
+   platform = request.headers.get("Platform")
+   lang = request.headers.get("Accept-Language")
+   sub_key = request.headers.get("Ocp-Apim-Subscription-Key")
+
+   if not platform or not lang or not sub_key:
+       return jsonify(msg="Missing required headers"), 400
+   
+   expected = current_app.config.get("APIM_SUBSCRIPTION_KEY")
+   if expected and sub_key != expected:
+       return jsonify(msg="Invalid Ocp-Apim-Subscription-Key"), 401
 
 @bp.post("/register")
 def register():
@@ -40,16 +59,6 @@ def login():
     token = create_access_token(identity=str(user.id))
     return jsonify(access_token=token, user=user.as_dict())
     
-# @bp.get("/me")
-# @jwt_required()
-# def me_alias():
-#     # uid = get_jwt_identity()
-#     uid = int(get_jwt_identity())
-#     user = User.query.get(uid)
-#     if not user:
-#         return jsonify(msg="user not found"), 404
-#     return jsonify(user=user.as_dict())
-
 @bp.get("/me")
 @jwt_required()
 def me_alias():
@@ -59,3 +68,13 @@ def me_alias():
         return jsonify(msg="user not found"), 404
     return jsonify(user=user.as_dict())
 
+@bp.get("/headers")
+def get_headers():
+    headers = {
+        "Content-Type": request.headers.get("Content-Type"),
+        "Accept": request.headers.get("Accept"),
+        "Platform": request.headers.get("Platform"),
+        "Accept-Language": request.headers.get("Accept-Language"),
+        "Ocp-Apim-Subscription-Key": request.headers.get("Ocp-Apim-Subscription-Key"),
+    }
+    return jsonify(headers)
