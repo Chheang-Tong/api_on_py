@@ -6,5 +6,21 @@ class User(db.Model):
     email = db.Column(db.String(255), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(100), nullable=False,default="")
 
+    # New fields
+    last_login_at = db.Column(db.DateTime)
+    last_login_ip = db.Column(db.String(45))  # supports IPv6
+    last_login_lat = db.Column(db.Float)      # nullable
+    last_login_lng = db.Column(db.Float)      # nullable
+    device = db.Column(db.String(100),nullable=True)  # nullable
+
     def as_dict(self):
-        return {"id": self.id, "email": self.email, "name": self.name}
+        return {
+            "id": self.id, 
+            "email": self.email, 
+            "name": self.name,
+            "last_login_at": self.last_login_at.isoformat() if self.last_login_at else None,
+            "last_login_ip": self.last_login_ip,
+            "last_login_lat": self.last_login_lat,
+            "last_login_lng": self.last_login_lng,
+            "device": self.device
+            }
