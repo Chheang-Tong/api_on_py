@@ -1,0 +1,12 @@
+flask
+flask_sqlalchemy
+flask_jwt_extended
+flask_cors
+# cd api
+# python3 -m venv .venv
+# source .venv/bin/activate
+# pip install -r requirements.txt
+
+## -> first run
+# python wsgi.py
+## -> Running on http://127.0.0.1:5000

@@ -1,0 +1,71 @@
+----> Install flask <----
+pip install flask
+
+----> Run Project <----
+python wsgi.py || python3 wsgi.py
+
+----> install pip3 <----
+python3 -m ensurepip --upgrade
+
+----> upgrade <----
+python3 -m pip install --upgrade pip
+
+----> install flask with pip3 <----
+python3 -m pip install flask
+
+====> Virtual Enviroment <=====
+# 1. Create a virtual environment in your project folder
+python3 -m venv venv
+
+# 2. Activate the virtual environment
+source venv/bin/activate
+
+# 3. Install Flask inside this environment
+pip install flask
+
+# 4. Run your app
+python backend.py
+
+# 5. you can deactivate the environment
+deactivate
+
+====> Brew install Flask <=====
+Brew install Flask && python3 backend.py
+
+**************************************************************
+
+You’re still running it outside a virtual environment, so Flask isn’t installed for that Python. Do this exactly:
+
+1) Go to your project folder
+cd "/Users/davidlong/Desktop/for learn"
+
+2) Create a virtual environment
+python3 -m venv .venv
+
+3) Activate it (zsh on macOS)
+source .venv/bin/activate
+
+
+You should see (.venv) at the start of your terminal prompt.
+
+4) Install Flask inside the venv
+python -m pip install --upgrade pip
+pip install flask
+
+
+(Quick check:)
+
+python -c "import flask, sys; print('Flask', flask.__version__, 'at', sys.executable)"
+
+5) Run your app
+python backend.py
+
+
+Open http://127.0.0.1:5000/hello
+ — you should get the JSON response.
+
+6) When you’re done
+deactivate
+
+
+If any step fails, paste the exact output here and I’ll fix it fast.
