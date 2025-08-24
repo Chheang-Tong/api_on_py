@@ -13,3 +13,8 @@ pip install flask
 app/__init__.py
 app/config.py
 app/extension.py
+
+===================
+How to run 
+source .venv/bin/activate
+python wsgi.py     

@@ -1,6 +1,7 @@
 import os
 from flask import Flask, jsonify
 from .extensions import db, jwt, cors
+from .extensions import db, migrate
 
 def create_app():
     app = Flask(__name__, instance_relative_config=True)
@@ -16,6 +17,8 @@ def create_app():
     db.init_app(app)
     jwt.init_app(app)
     cors.init_app(app, resources={r"/*": {"origins": "*"}})
+    migrate.init_app(app, db)
+
 
     # Register blueprints
     from .auth import bp as auth_bp

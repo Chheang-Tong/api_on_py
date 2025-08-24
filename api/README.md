@@ -203,3 +203,8 @@ PY
 
 =====> Remove db <=====
 rm instance/app.db
+
+==========
+pip install flask-migrate alembic
+latlng
+
