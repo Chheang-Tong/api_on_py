@@ -5,7 +5,7 @@ from .models import Product
 from ..extensions import db
 from sqlalchemy import asc, desc
 
-# ---------- Helpers ----------
+# ---------- Helpers -----------
 def _to_bool(val, default=None):
     if val is None:
         return default

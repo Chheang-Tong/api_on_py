@@ -2,6 +2,8 @@ flask
 flask_sqlalchemy
 flask_jwt_extended
 flask_cors
+flask-migrate
+
 # cd api
 # python3 -m venv .venv
 # source .venv/bin/activate
