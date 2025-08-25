@@ -2,9 +2,12 @@ from flask import request, jsonify, current_app
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 
-from . import bp
-from .models import User
-from ..extensions import db
+from . import bp  # the blueprint in this package
+
+from app.models import User
+from app.extensions import db
+from app.utils.net import get_client_ip, parse_coord, clamp_lat_lng
+
 
 # ---- Enforce headers for this blueprint ----
 @bp.before_request

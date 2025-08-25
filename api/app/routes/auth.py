@@ -1,11 +1,10 @@
-# app/routes/auth.py (your blueprint file)
 from datetime import datetime
 from flask import request, jsonify, current_app
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 
 from . import bp
-from .models import User
+from app.auth.models import User
 from ..extensions import db
 from ..utils.net import get_client_ip, parse_coord, clamp_lat_lng
 

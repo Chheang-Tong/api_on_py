@@ -1,8 +1,8 @@
 from flask import request, jsonify
 from flask_jwt_extended import jwt_required
 from . import bp
-from .models import Sale
-from ..products.models import Product
+from ..models import Sale
+from ..models import Product
 from ..extensions import db
 
 @bp.post("/")
