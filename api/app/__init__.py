@@ -3,9 +3,7 @@ import os
 from flask import Flask, jsonify
 from .extensions import db, jwt, cors
 from .extensions import db, migrate
-# from .products import bp as products_bp
-# from .category import bp as categories_bp
-# from .options import bp as options_bp
+
 
 
 def create_app():

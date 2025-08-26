@@ -35,8 +35,12 @@ def register():
     password = data.get("password") or ""
     name =(data.get("name")or"").strip()
 
-    if not email or not password or not name:
-        return jsonify(msg="email & password & name required"), 400
+    if not email :
+        return jsonify(msg="email required"), 400
+    if not password or len(password) < 6:
+        return jsonify(msg="password required, min 6 chars"), 400
+    if not name:
+        return jsonify(msg="name required"), 400
     if User.query.filter_by(email=email).first():
         return jsonify(msg="email already registered"), 409
 

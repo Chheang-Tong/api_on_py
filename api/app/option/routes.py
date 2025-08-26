@@ -5,6 +5,7 @@ from sqlalchemy import or_, asc, desc
 from ..models import Product, Option, OptionValue
 from ..extensions import db
 from . import bp
+
 # ------------------------ helpers ------------------------
 def _to_float(v, default=None):
     try:
