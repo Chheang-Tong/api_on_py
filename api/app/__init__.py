@@ -3,6 +3,10 @@ import os
 from flask import Flask, jsonify
 from .extensions import db, jwt, cors
 from .extensions import db, migrate
+# from .products import bp as products_bp
+# from .category import bp as categories_bp
+# from .options import bp as options_bp
+
 
 def create_app():
     app = Flask(__name__, instance_relative_config=True)
@@ -23,10 +27,16 @@ def create_app():
 
     # Register blueprints
     from .auth import bp as auth_bp
-    app.register_blueprint(auth_bp, url_prefix="/auth")
+    app.register_blueprint(auth_bp)
     # products blueprint
     from .products import bp as products_bp
-    app.register_blueprint(products_bp, url_prefix="/products")
+    app.register_blueprint(products_bp)
+    # categories blueprint
+    from .category import bp as categories_bp
+    app.register_blueprint(categories_bp)
+    #options blueprint
+    from .option import bp as options_bp
+    app.register_blueprint(options_bp)
 
 
     @app.get("/")
