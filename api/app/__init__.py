@@ -9,6 +9,8 @@ from .extensions import db, migrate
 def create_app():
     app = Flask(__name__, instance_relative_config=True)
 
+    app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024 
+    app.config["UPLOAD_SUBDIR"] = "static/uploads"
     # Ensure instance folder exists and set SQLite DB there
     os.makedirs(app.instance_path, exist_ok=True)
     db_path = os.path.join(app.instance_path, "app.db")

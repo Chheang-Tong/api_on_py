@@ -9,6 +9,7 @@ class Product(db.Model):
     price = db.Column(db.Float, nullable=False, default=0.0)
     stock = db.Column(db.Integer, nullable=False, default=0)
     category_id = db.Column(db.Integer, db.ForeignKey("category.id"), nullable=True)
+    image_url = db.Column(db.String(500), nullable=True)
 
     options = db.relationship(
         "Option",
@@ -25,7 +26,8 @@ class Product(db.Model):
             "price": self.price,
             "stock": self.stock,
             "category": self.category.as_dict() if self.category else None,
-            "options": [o.as_dict() for o in self.options],
+            "image_url": self.image_url,
+            "options": [o.as_dict() for o in self.options ]if hasattr(self, "options") else [],
         }
         
 

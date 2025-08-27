@@ -73,3 +73,7 @@ If any step fails, paste the exact output here and I’ll fix it fast.
 docker
 brew install --cask docker           # or download from docker.com
 open -a Docker                       # start Docker Desktop and wait for it to say “Running”
+
+# from the project root where docker-compose.yml lives
+docker compose build api
+docker compose up -d api

@@ -5,9 +5,37 @@ from sqlalchemy import or_, asc, desc
 from ..models import Product, Option, OptionValue
 from ..extensions import db
 from . import bp
+import os
+import json
+from uuid import uuid4
+from werkzeug.utils import secure_filename
 from app.utils.decorators import require_headers
 
+ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
+
 # ------------------------ helpers ------------------------
+
+def allowed_file(filename: str) -> bool:
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def save_upload(file_storage):
+    filename = secure_filename(file_storage.filename or "")
+    if not allowed_file(filename):
+        raise ValueError("unsupported image type or missing extension")
+
+    ext = filename.rsplit(".", 1)[1].lower()
+    unique = f"{uuid4().hex}.{ext}"
+
+    # Resolve /app/app/static/uploads relative to this file:
+    app_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    upload_dir = os.path.join(app_root, "static", "uploads")
+    os.makedirs(upload_dir, exist_ok=True)
+
+    full_path = os.path.join(upload_dir, unique)
+    file_storage.save(full_path)
+
+    return f"/static/uploads/{unique}"
+
 def _to_int(v, default=None):
     try:
         return int(v)
@@ -91,15 +119,50 @@ def _load_options_from_payload(product, options_payload):
 @require_headers
 @jwt_required()
 def create_product():
-    data = request.get_json(silent=True) or {}
-    barcode = (data.get("barcode") or "").strip()
-    name = (data.get("name") or "").strip()
-    price = _to_float(data.get("price"), 0.0)
-    stock = _to_int(data.get("stock"), 0)
-    category_id = _to_int(data.get("category_id"))
+    """
+    Accepts:
+      - multipart/form-data (recommended when uploading image)
+        Fields: barcode, name, price, stock, category_id? + image file in "image"
+      - OR application/json without a file; you can pass image_url directly
+    """
+    is_multipart = request.content_type and "multipart/form-data" in request.content_type
+    image_url = None
+    options_payload = None
+    if is_multipart:
+        form = request.form
+        barcode = (form.get("barcode") or "").strip()
+        name    = (form.get("name") or "").strip()
+        price   = float(form.get("price") or 0)
+        stock   = int(form.get("stock") or 0)
+        category_id = form.get("category_id")
+        category_id = int(category_id) if category_id else None
 
-    if not barcode or not name:
-        return jsonify(msg="barcode & name required"), 400
+        if form.get("options"):
+            try:
+                options_payload = json.loads(form.get("options"))
+            except json.JSONDecodeError:
+                return jsonify(msg="invalid options JSON"), 400
+
+
+        image_file = request.files.get("image")
+        if image_file and image_file.filename:
+            if not allowed_file(image_file.filename):
+                return jsonify(msg="unsupported image type"), 400
+            image_url = save_upload(image_file)
+    else:
+        data = request.get_json(silent=True) or {}
+        barcode = (data.get("barcode") or "").strip()
+        name = (data.get("name") or "").strip()
+        price = _to_float(data.get("price"), 0.0)
+        stock = _to_int(data.get("stock"), 0)
+        category_id = _to_int(data.get("category_id"))
+        image_url   = (data.get("image_url") or "").strip() or None
+        options_payload = data.get("options")
+
+    if not barcode :
+        return jsonify(msg="barcode required"), 400
+    if not name:
+        return jsonify(msg="name required"), 400
     if Product.query.filter_by(barcode=barcode).first():
         return jsonify(msg="barcode already exists"), 409
 
@@ -109,11 +172,11 @@ def create_product():
         price=price,
         stock=stock,
         category_id=category_id,
+        image_url=image_url,
     )
     db.session.add(product)
 
     # optional options payload
-    options_payload = data.get("options")
     if options_payload:
         _load_options_from_payload(product, options_payload)
 
@@ -260,3 +323,23 @@ def delete_product(pid):
     db.session.delete(p)
     db.session.commit()
     return jsonify(msg="deleted"), 200
+# ------------------------ Update IMAGE ------------------------
+@bp.post("/<int:pid>/image")
+@require_headers
+@jwt_required()
+def upload_product_image(pid):
+    p = Product.query.get_or_404(pid)
+
+    if not (request.content_type and "multipart/form-data" in request.content_type):
+        return jsonify(msg="multipart/form-data required"), 400
+
+    image_file = request.files.get("image")
+    if not (image_file and image_file.filename):
+        return jsonify(msg="no image provided"), 400
+    if not allowed_file(image_file.filename):
+        return jsonify(msg="unsupported image type"), 400
+
+    url = save_upload(image_file)
+    p.image_url = url
+    db.session.commit()
+    return jsonify(product=p.as_dict()), 200
