@@ -3,9 +3,9 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 
 from . import bp 
-
 from app.models import User
 from app.extensions import db
+# from app.utils.decorators import require_headers 
 from app.utils.net import get_client_ip, parse_coord, clamp_lat_lng
 
 
@@ -67,6 +67,7 @@ def login():
     
 @bp.get("/me")
 @jwt_required()
+# @require_headers
 def me_alias():
     uid = get_jwt_identity()  
     user = User.query.get(int(uid))

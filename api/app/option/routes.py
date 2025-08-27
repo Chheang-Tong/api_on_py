@@ -5,6 +5,7 @@ from sqlalchemy import or_, asc, desc
 from ..models import Product, Option, OptionValue
 from ..extensions import db
 from . import bp
+from app.utils.decorators import require_headers
 
 # ------------------------ helpers ------------------------
 def _to_float(v, default=None):
@@ -15,6 +16,7 @@ def _to_float(v, default=None):
 
 # ------------------------ OPTIONS: create option ------------------------
 @bp.post("/")
+@require_headers
 @jwt_required()
 def add_option(pid):
     p = Option.query.get_or_404(pid)
@@ -38,6 +40,7 @@ def add_option(pid):
 
 # ------------------------ OPTIONS: update/delete ------------------------
 @bp.put("/<int:oid>")
+@require_headers
 @jwt_required()
 def update_option(oid):
     opt = Option.query.get_or_404(oid)
@@ -66,6 +69,7 @@ def update_option(oid):
 
 
 @bp.delete("/<int:oid>")
+@require_headers
 @jwt_required()
 def delete_option(oid):
     opt = Option.query.get_or_404(oid)
@@ -76,6 +80,7 @@ def delete_option(oid):
 
 # ------------------------ OPTION VALUES: create on option ------------------------
 @bp.post("/<int:oid>/values")
+@require_headers
 @jwt_required()
 def add_option_value(oid):
     opt = Option.query.get_or_404(oid)
@@ -93,6 +98,7 @@ def add_option_value(oid):
 
 # ------------------------ OPTION VALUES: update/delete ------------------------
 @bp.put("/values/<int:vid>")
+@require_headers
 @jwt_required()
 def update_option_value(vid):
     val = OptionValue.query.get_or_404(vid)
@@ -106,6 +112,7 @@ def update_option_value(vid):
 
 
 @bp.delete("/values/<int:vid>")
+@require_headers
 @jwt_required()
 def delete_option_value(vid):
     val = OptionValue.query.get_or_404(vid)

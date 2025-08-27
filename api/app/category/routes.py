@@ -4,6 +4,7 @@ from flask_jwt_extended import jwt_required
 from sqlalchemy import or_, asc, desc
 from ..models import Category, Product
 from ..extensions import db
+from app.utils.decorators import require_headers
 from . import bp
 # ------------------------ helpers ------------------------
 def _to_int(v, default=None):
@@ -28,6 +29,7 @@ def _paginate(query, page, per_page):
 # ------------------------ CATEGORY ROUTES ------------------------
 
 @bp.post("/")
+@require_headers
 @jwt_required()
 def create_category():
     data = request.get_json(silent=True) or {}
@@ -43,6 +45,7 @@ def create_category():
 
 
 @bp.get("/")
+@require_headers
 @jwt_required()
 def list_categories():
     """
@@ -75,6 +78,7 @@ def list_categories():
     )
 
 @bp.get("/<int:cid>")
+@require_headers
 @jwt_required()
 def get_category(cid):
     c = Category.query.get_or_404(cid)
@@ -82,6 +86,7 @@ def get_category(cid):
 
 
 @bp.put("/<int:cid>")
+@require_headers
 @jwt_required()
 def update_category(cid):
     c = Category.query.get_or_404(cid)
@@ -101,6 +106,7 @@ def update_category(cid):
 
 
 @bp.delete("/<int:cid>")
+@require_headers
 @jwt_required()
 def delete_category(cid):
     if Product.query.filter_by(category_id=cid).first():

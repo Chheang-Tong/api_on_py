@@ -4,8 +4,10 @@ from . import bp
 from ..models import Sale
 from ..models import Product
 from ..extensions import db
+from app.utils.decorators import require_headers
 
 @bp.post("/")
+@require_headers
 @jwt_required()
 def create_sale():
     data = request.get_json(silent=True) or {}
@@ -26,6 +28,7 @@ def create_sale():
     return jsonify(sale={"id": sale.id, "product_id": product.id, "qty": qty, "total": total})
 
 @bp.get("/")
+@require_headers
 @jwt_required()
 def list_sales():
     sales = Sale.query.order_by(Sale.id.desc()).all()

@@ -5,6 +5,8 @@ from sqlalchemy import or_, asc, desc
 from ..models import Product, Option, OptionValue
 from ..extensions import db
 from . import bp
+from app.utils.decorators import require_headers
+
 # ------------------------ helpers ------------------------
 def _to_int(v, default=None):
     try:
@@ -86,6 +88,7 @@ def _load_options_from_payload(product, options_payload):
 
 # ------------------------ CREATE ------------------------
 @bp.post("/")
+@require_headers
 @jwt_required()
 def create_product():
     data = request.get_json(silent=True) or {}
@@ -120,6 +123,7 @@ def create_product():
 
 # ------------------------ LIST ------------------------
 @bp.get("/")
+@require_headers
 @jwt_required()
 def list_products():
     """
@@ -199,6 +203,7 @@ def list_products():
 
 # ------------------------ READ ONE ------------------------
 @bp.get("/<int:pid>")
+@require_headers
 @jwt_required()
 def get_product(pid):
     p = Product.query.get_or_404(pid)
@@ -207,6 +212,7 @@ def get_product(pid):
 
 # ------------------------ UPDATE ------------------------
 @bp.put("/<int:pid>")
+@require_headers
 @jwt_required()
 def update_product(pid):
     p = Product.query.get_or_404(pid)
@@ -247,6 +253,7 @@ def update_product(pid):
 
 # ------------------------ DELETE ------------------------
 @bp.delete("/<int:pid>")
+@require_headers
 @jwt_required()
 def delete_product(pid):
     p = Product.query.get_or_404(pid)

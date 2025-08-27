@@ -1,0 +1,12 @@
+# docker-compose.yml
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports: ["5000:5000"]
+    environment:
+      - JWT_SECRET_KEY=dev-secret-change-me
+    volumes:
+      - ./instance:/app/instance
+      - .:/app
