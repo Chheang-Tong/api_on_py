@@ -3,10 +3,10 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 
 from . import bp 
-from app.models import User
-from app.extensions import db
-# from app.utils.decorators import require_headers 
-from app.utils.net import get_client_ip, parse_coord, clamp_lat_lng
+from ..models import User
+from ..extensions import db 
+from ..utils.net import get_client_ip, parse_coord, clamp_lat_lng
+from ..utils.api import api_ok, api_error
 
 
 # ---- Enforce headers for this blueprint ----
@@ -52,7 +52,12 @@ def register():
     db.session.add(user)
     db.session.commit()
     
-    return jsonify(user=user.as_dict()), 201
+    return jsonify(api_ok(
+        "Account created successfully",
+        data={
+            "user": user.as_dict(),
+            "user_logged_in": True,
+        })), 201
 
 @bp.post("/login")
 def login():
@@ -60,14 +65,22 @@ def login():
     email = (data.get("email") or "").strip().lower()
     password = data.get("password") or ""
     user = User.query.filter_by(email=email).first()
+    if not email or not password:
+        return jsonify(api_error("Email and password are required")), 400
     if not user or not check_password_hash(user.password_hash, password):
-        return jsonify(msg="invalid credentials"), 401
+        return jsonify(api_error("Invalid email or password")), 401
     token = create_access_token(identity=str(user.id))
-    return jsonify(access_token=token, user=user.as_dict())
+    return jsonify(api_ok(
+        "You've logged in successfully",
+        data={
+            "user": user.as_dict(),
+            "user_logged_in": True,
+            "token": token
+        }
+    )), 200
     
 @bp.get("/me")
 @jwt_required()
-# @require_headers
 def me_alias():
     uid = get_jwt_identity()  
     user = User.query.get(int(uid))

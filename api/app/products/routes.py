@@ -17,6 +17,8 @@ ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 
 def allowed_file(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+def _is_local_upload(url: str) -> bool:
+    return isinstance(url, str) and url.startswith("/static/uploads/")
 
 def save_upload(file_storage):
     filename = secure_filename(file_storage.filename or "")
@@ -35,6 +37,21 @@ def save_upload(file_storage):
     file_storage.save(full_path)
 
     return f"/static/uploads/{unique}"
+
+def _remove_local_upload(url: str):
+    # Only delete files inside app/static/uploads to avoid accidental deletions
+    try:
+        # /app/app/products -> /app/app
+        app_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        uploads_root = os.path.join(app_root, "static", "uploads")
+        candidate = os.path.abspath(os.path.join(app_root, url.lstrip("/")))
+
+        # safety: ensure candidate is inside uploads_root
+        if os.path.commonpath([uploads_root, candidate]) == uploads_root and os.path.exists(candidate):
+            os.remove(candidate)
+    except Exception:
+        # swallow cleanup errors to not break the request
+        pass
 
 def _to_int(v, default=None):
     try:
@@ -327,19 +344,55 @@ def delete_product(pid):
 @bp.post("/<int:pid>/image")
 @require_headers
 @jwt_required()
+# def upload_product_image(pid):
+#     p = Product.query.get_or_404(pid)
+
+#     if not (request.content_type and "multipart/form-data" in request.content_type):
+#         return jsonify(msg="multipart/form-data required"), 400
+
+#     image_file = request.files.get("image")
+#     if not (image_file and image_file.filename):
+#         return jsonify(msg="no image provided"), 400
+#     if not allowed_file(image_file.filename):
+#         return jsonify(msg="unsupported image type"), 400
+
+#     url = save_upload(image_file)
+#     p.image_url = url
+#     db.session.commit()
+#     return jsonify(product=p.as_dict()), 200
+
 def upload_product_image(pid):
     p = Product.query.get_or_404(pid)
+    old_url = p.image_url
 
-    if not (request.content_type and "multipart/form-data" in request.content_type):
-        return jsonify(msg="multipart/form-data required"), 400
+    ct = (request.content_type or "").lower()
 
-    image_file = request.files.get("image")
-    if not (image_file and image_file.filename):
-        return jsonify(msg="no image provided"), 400
-    if not allowed_file(image_file.filename):
-        return jsonify(msg="unsupported image type"), 400
+    new_url = None
+    # 1) Support multipart file upload
+    if "multipart/form-data" in ct:
+        image_file = request.files.get("image")
+        if not (image_file and image_file.filename):
+            return jsonify(msg="no image provided"), 400
+        if not allowed_file(image_file.filename):
+            return jsonify(msg="unsupported image type"), 400
+        new_url = save_upload(image_file)
 
-    url = save_upload(image_file)
-    p.image_url = url
+    # 2) Or support JSON: {"image_url": "https://..."}
+    elif "application/json" in ct:
+        data = request.get_json(silent=True) or {}
+        candidate_url = (data.get("image_url") or "").strip()
+        if not candidate_url:
+            return jsonify(msg="image_url required"), 400
+        new_url = candidate_url
+
+    else:
+        return jsonify(msg="multipart/form-data or application/json required"), 400
+
+    p.image_url = new_url
     db.session.commit()
+
+    # Best-effort cleanup only if old was a local upload file
+    if old_url and _is_local_upload(old_url) and old_url != new_url:
+        _remove_local_upload(old_url)
+
     return jsonify(product=p.as_dict()), 200

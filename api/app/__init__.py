@@ -1,26 +1,21 @@
-# app/__init__.py
 import os
 from flask import Flask, jsonify
-from .extensions import db, jwt, cors
-from .extensions import db, migrate
-
-
+from .extensions import db, jwt, cors, migrate
 
 def create_app():
     app = Flask(__name__, instance_relative_config=True)
 
-    app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024 
+    app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024
     app.config["UPLOAD_SUBDIR"] = "static/uploads"
-    # Ensure instance folder exists and set SQLite DB there
+
     os.makedirs(app.instance_path, exist_ok=True)
     db_path = os.path.join(app.instance_path, "app.db")
-    app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path}"
+    app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
+        "SQLALCHEMY_DATABASE_URI",
+        f"sqlite:///{db_path}",
+    )
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     app.config["JWT_SECRET_KEY"] = os.environ.get("JWT_SECRET_KEY", "dev-secret-change-me")
-    app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("SQLALCHEMY_DATABASE_URI",f"sqlite:///{db_path}",)
-    db_path = os.path.join(app.instance_path, "app.db") 
-    app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path}"
-
 
     # Init extensions
     db.init_app(app)
@@ -28,27 +23,48 @@ def create_app():
     cors.init_app(app, resources={r"/*": {"origins": "*"}})
     migrate.init_app(app, db)
 
-
     # Register blueprints
-    from .auth import bp as auth_bp
-    app.register_blueprint(auth_bp)
-    # products blueprint
-    from .products import bp as products_bp
-    app.register_blueprint(products_bp)
-    # categories blueprint
-    from .category import bp as categories_bp
-    app.register_blueprint(categories_bp)
-    #options blueprint
-    from .option import bp as options_bp
-    app.register_blueprint(options_bp)
-
+    from .auth import bp as auth_bp; app.register_blueprint(auth_bp)
+    from .products import bp as products_bp; app.register_blueprint(products_bp)
+    from .category import bp as categories_bp; app.register_blueprint(categories_bp)
+    from .option import bp as options_bp; app.register_blueprint(options_bp)
+    from .cart import bp as cart_bp; app.register_blueprint(cart_bp)
 
     @app.get("/")
     def health():
         return jsonify(ok=True, msg="API running")
 
-    # Dev: create tables
     with app.app_context():
+        import importlib
+        import app as apppkg
+
+        base = os.path.dirname(apppkg.__file__)
+        print("=== DEBUG FS ===")
+        print("app dir:", base)
+        try:
+            print("app listdir:", sorted(os.listdir(base)))
+        except Exception as e:
+            print("listdir failed:", e)
+
+        cart_path = os.path.join(base, "cart")
+        print("cart dir exists?", os.path.isdir(cart_path))
+        if os.path.isdir(cart_path):
+            print("cart listdir:", sorted(os.listdir(cart_path)))
+
+        print("=== DEBUG IMPORTS ===")
+        try:
+            cartpkg = importlib.import_module("app.cart")
+            print("import app.cart OK:", cartpkg)
+            print("has bp?", hasattr(cartpkg, "bp"))
+            if hasattr(cartpkg, "bp"):
+                print("bp.url_prefix:", cartpkg.bp.url_prefix)
+        except Exception as e:
+            print("import app.cart FAILED:", repr(e))
+
+        print("=== BLUEPRINTS ===", sorted(app.blueprints.keys()))
+        print("=== URL MAP ===")
+        for rule in app.url_map.iter_rules():
+            print(sorted(rule.methods), rule.rule)
         db.create_all()
 
     return app
