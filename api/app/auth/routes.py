@@ -85,7 +85,7 @@ def me_alias():
     uid = get_jwt_identity()  
     user = User.query.get(int(uid))
     if not user:
-        return jsonify(msg="user not found"), 404
+        return jsonify(api_error("user not found")), 404
     return jsonify(user=user.as_dict())
 
 @bp.get("/headers")

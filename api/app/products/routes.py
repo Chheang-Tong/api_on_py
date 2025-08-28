@@ -9,34 +9,55 @@ import os
 import json
 from uuid import uuid4
 from werkzeug.utils import secure_filename
-from app.utils.decorators import require_headers
+from ..utils.decorators import require_headers
+from ..utils.api import api_ok, api_error
+import re
 
+# ------------------------ config ------------------------
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 
 # ------------------------ helpers ------------------------
 
 def allowed_file(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
 def _is_local_upload(url: str) -> bool:
     return isinstance(url, str) and url.startswith("/static/uploads/")
 
-def save_upload(file_storage):
-    filename = secure_filename(file_storage.filename or "")
-    if not allowed_file(filename):
+def _slugify(name: str) -> str:
+    base = os.path.splitext(name)[0]
+    s = re.sub(r'[^a-z0-9]+', '-', base.strip().lower())
+    return s.strip('-') or 'image'
+
+def save_upload(file_storage, custom_name=None):
+    original = secure_filename(file_storage.filename or "")
+    if not allowed_file(original):
         raise ValueError("unsupported image type or missing extension")
 
-    ext = filename.rsplit(".", 1)[1].lower()
-    unique = f"{uuid4().hex}.{ext}"
+    ext = original.rsplit(".", 1)[1].lower()
 
-    # Resolve /app/app/static/uploads relative to this file:
+    if custom_name:
+        filename = secure_filename(custom_name) + "." + ext
+    else:
+        filename = original
+
     app_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     upload_dir = os.path.join(app_root, "static", "uploads")
     os.makedirs(upload_dir, exist_ok=True)
 
-    full_path = os.path.join(upload_dir, unique)
+    full_path = os.path.join(upload_dir, filename)
+
+    if os.path.exists(full_path):
+        filename = f"{os.path.splitext(filename)[0]}-{uuid4().hex[:6]}.{ext}"
+        full_path = os.path.join(upload_dir, filename)
+
     file_storage.save(full_path)
 
-    return f"/static/uploads/{unique}"
+    return {
+        "url": f"/static/uploads/{filename}",
+        "name": filename
+    }
+
 
 def _remove_local_upload(url: str):
     # Only delete files inside app/static/uploads to avoid accidental deletions
@@ -158,14 +179,17 @@ def create_product():
             try:
                 options_payload = json.loads(form.get("options"))
             except json.JSONDecodeError:
-                return jsonify(msg="invalid options JSON"), 400
+                return jsonify(api_error("invalid options JSON")), 400
 
 
         image_file = request.files.get("image")
         if image_file and image_file.filename:
             if not allowed_file(image_file.filename):
                 return jsonify(msg="unsupported image type"), 400
-            image_url = save_upload(image_file)
+            custom_from_form = (form.get("image_name") or "").strip() or None
+            custom_name = custom_from_form or (_slugify(name) if name else None)
+            saved= save_upload(image_file, custom_name=custom_name)
+            image_url = saved["url"]
     else:
         data = request.get_json(silent=True) or {}
         barcode = (data.get("barcode") or "").strip()
@@ -177,11 +201,11 @@ def create_product():
         options_payload = data.get("options")
 
     if not barcode :
-        return jsonify(msg="barcode required"), 400
+        return jsonify(api_error("barcode required")), 400
     if not name:
-        return jsonify(msg="name required"), 400
+        return jsonify(api_error("name required")), 400
     if Product.query.filter_by(barcode=barcode).first():
-        return jsonify(msg="barcode already exists"), 409
+        return jsonify(api_error("barcode already exists")), 409
 
     product = Product(
         barcode=barcode,
@@ -198,7 +222,15 @@ def create_product():
         _load_options_from_payload(product, options_payload)
 
     db.session.commit()
-    return jsonify(product=product.as_dict()), 201
+    return jsonify(
+        # product=product.as_dict()
+        api_ok(
+            "Product created successfully",
+            data={
+                "product": product.as_dict(),
+            }
+        )), 201
+
 
 
 # ------------------------ LIST ------------------------
@@ -344,22 +376,6 @@ def delete_product(pid):
 @bp.post("/<int:pid>/image")
 @require_headers
 @jwt_required()
-# def upload_product_image(pid):
-#     p = Product.query.get_or_404(pid)
-
-#     if not (request.content_type and "multipart/form-data" in request.content_type):
-#         return jsonify(msg="multipart/form-data required"), 400
-
-#     image_file = request.files.get("image")
-#     if not (image_file and image_file.filename):
-#         return jsonify(msg="no image provided"), 400
-#     if not allowed_file(image_file.filename):
-#         return jsonify(msg="unsupported image type"), 400
-
-#     url = save_upload(image_file)
-#     p.image_url = url
-#     db.session.commit()
-#     return jsonify(product=p.as_dict()), 200
 
 def upload_product_image(pid):
     p = Product.query.get_or_404(pid)
@@ -375,7 +391,10 @@ def upload_product_image(pid):
             return jsonify(msg="no image provided"), 400
         if not allowed_file(image_file.filename):
             return jsonify(msg="unsupported image type"), 400
-        new_url = save_upload(image_file)
+        custom_from_form = (request.form.get("image_name") or "").strip() or None
+        fallback=_slugify(getattr(p, "name", "") or "")
+        saved=save_upload(image_file, custom_name=custom_from_form or (fallback or None))
+        new_url = saved['url']
 
     # 2) Or support JSON: {"image_url": "https://..."}
     elif "application/json" in ct:
@@ -391,7 +410,6 @@ def upload_product_image(pid):
     p.image_url = new_url
     db.session.commit()
 
-    # Best-effort cleanup only if old was a local upload file
     if old_url and _is_local_upload(old_url) and old_url != new_url:
         _remove_local_upload(old_url)
 
