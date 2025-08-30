@@ -25,3 +25,9 @@ class User(db.Model):
             "last_login_lng": self.last_login_lng,
             "device": self.device
             }
+    
+class RefreshToken(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    token = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    expires_at = db.Column(db.DateTime, nullable=False)

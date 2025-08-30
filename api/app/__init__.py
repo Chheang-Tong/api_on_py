@@ -1,6 +1,7 @@
 import os
 from flask import Flask, jsonify
 from .extensions import db, jwt, cors, migrate
+from datetime import timedelta
 
 def create_app():
     app = Flask(__name__, instance_relative_config=True)
@@ -10,12 +11,11 @@ def create_app():
 
     os.makedirs(app.instance_path, exist_ok=True)
     db_path = os.path.join(app.instance_path, "app.db")
-    app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
-        "SQLALCHEMY_DATABASE_URI",
-        f"sqlite:///{db_path}",
-    )
+    app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("SQLALCHEMY_DATABASE_URI",f"sqlite:///{db_path}",)
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     app.config["JWT_SECRET_KEY"] = os.environ.get("JWT_SECRET_KEY", "dev-secret-change-me")
+    app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=1)
+    app.config["JWT_REFRESH_TOKEN_EXPIRES"] = timedelta(days=30)
 
     # Init extensions
     db.init_app(app)
