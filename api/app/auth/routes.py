@@ -10,6 +10,21 @@ from ..utils.api import api_ok, api_error
 import uuid
 
 
+# --- helper: create & persist a token pair ---
+def _issue_tokens(user_id: int, access_ttl_hours: int = 1, refresh_ttl_days: int = 7):
+    access_token = create_access_token(
+        identity=str(user_id),
+        expires_delta=timedelta(hours=access_ttl_hours),
+    )
+    refresh_token_str = str(uuid.uuid4())
+    refresh_row = RefreshToken(
+        user_id=user_id,
+        token=refresh_token_str,
+        expires_at=datetime.utcnow() + timedelta(days=refresh_ttl_days),
+    )
+    db.session.add(refresh_row)
+    return access_token, refresh_token_str
+
 
 # ---- Enforce headers for this blueprint ----
 @bp.before_request
@@ -114,15 +129,35 @@ def get_headers():
     }
     return jsonify(headers)
 
-@bp.post("/refresh")
 
+@bp.post("/refresh")
 def refresh():
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     token_str = data.get("refresh_token")
-    refresh = RefreshToken.query.filter_by(token=token_str).first()
-    if not refresh or refresh.expires_at < datetime.utcnow():
+    if not token_str:
+        return jsonify(api_error("refresh_token is required")), 400
+
+    # Look up the presented refresh token
+    refresh_row = RefreshToken.query.filter_by(token=token_str).first()
+
+    # Reject if missing or expired
+    if not refresh_row or refresh_row.expires_at < datetime.utcnow():
         return jsonify(api_error("Invalid or expired refresh token")), 401
 
-    # issue new access token
-    new_access = create_access_token(identity=str(refresh.user_id), expires_delta=timedelta(days=1))
-    return jsonify(accessToken=new_access), 200
+    user_id = refresh_row.user_id
+
+    # ROTATE: make the old refresh token single-use by removing it
+    db.session.delete(refresh_row)
+    db.session.flush()  # ensures the delete happens before new insert
+
+    # Issue a brand-new pair
+    new_access, new_refresh = _issue_tokens(user_id)
+    db.session.commit()
+
+    return jsonify(api_ok(
+        "Token refreshed",
+        data={
+            "token": new_access,
+            "refresh_token": new_refresh
+        }
+    )), 200
